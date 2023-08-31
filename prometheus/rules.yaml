@@ -1,0 +1,89 @@
+# tip : to validate the syntax of this alert file use - promtool check rules alert.rules.yml
+groups:
+  - name: "Prometheus Alert Rules"
+    rules:
+      ###Prometheus self alerts###
+
+      #Prometheus job missing
+      - alert: PrometheusJobMissing
+        expr: absent(up{job="prometheus"})
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Prometheus job missing (instance {{ $labels.instance }})"
+          description: "A Prometheus job ({{$labels.job}}) has disappeared\n  VALUE = {{ $value }}"
+
+      #Prometheus target missing
+      - alert: PrometheusTargetMissing
+        expr: up == 0 #if this up metric is 0 then it will indicate that the target is not responding
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Prometheus target missing (instance {{ $labels.instance }})"
+          description: "A Prometheus target has disappeared. An exporter might be crashed.\n  VALUE = {{ $value }}"
+
+      #Prometheus not connected to alert manager
+      - alert: PrometheusNotConnectedToAlertmanager
+        expr: prometheus_notifications_alertmanagers_discovered < 1
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Prometheus not connected to alertmanager (instance {{ $labels.instance }})"
+          description: "Prometheus cannot connect the alertmanager\n  VALUE = {{ $value }}"
+
+      ### Host related alerts###
+
+      # Hostavailable memory drops below 500 MB for more than 5 minutes
+      - alert: HostOutOfMemory
+        expr: node_memory_MemAvailable_bytes < 500000000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Host out of memory (instance {{ $labels.instance }})"
+          description: "The host named {{ $labels.instance }} has less than 500 MB of memory available for the past 5 minutes.\nVALUE = {{ $value }}"
+
+      # Host disk space below 10% for 5 minutes
+      - alert: NodeMemoryLow
+        expr: 100 - ((node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100) > 90
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Low memory availability on {{ $labels.instance }}"
+          description: "The available memory on {{ $labels.instance }} has dropped below 10% of the total memory for the last 5 minutes."
+
+      # Host high CPU load
+      - alert: HostHighCpuLoad
+        expr: (sum by (instance) (avg by (mode, instance) (rate(node_cpu_seconds_total{mode!="idle"}[2m]))) > 0.8) * on(instance) group_left (nodename) node_uname_info{nodename=~".+"}
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Host high CPU load (instance {{ $labels.instance }})"
+          description: "CPU load is > 80%\n  VALUE = {{ $value }}"
+
+      ### Container related alerts ###
+
+      # container has disappeared (this could appear multiple times if we are going to start/stop containers)
+      - alert: ContainerKilled
+        expr: time() - container_last_seen > 60
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container killed (instance {{ $labels.instance }})"
+          description: "A container has disappeared\n  VALUE = {{ $value }}"
+
+      # container memory usage
+      - alert: ContainerMemoryUsage
+        expr: (sum(container_memory_working_set_bytes{name!=""}) BY (instance, name) / sum(container_spec_memory_limit_bytes > 0) BY (instance, name) * 100) > 80
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container Memory usage (instance {{ $labels.instance }})"
+          description: "Container Memory usage is above 80%\n  VALUE = {{ $value }}"

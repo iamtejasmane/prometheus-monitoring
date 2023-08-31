@@ -1,0 +1,28 @@
+global:
+  scrape_interval: 5s
+  external_labels:
+    monitor: "monitor-name"
+scrape_configs:
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+  - job_name: "ec2_aws_node_exporter_discovery"
+    relabel_configs:
+      - source_labels: [__meta_ec2_tag_aws_cloudformation_stack_name]
+        regex: Infra-ECS-Cluster-my-production-cluster-377db17e # replace it with your regex
+        action: keep
+    ec2_sd_configs:
+      - port: 9100 # referred to nodeExporter exposed port
+        region: "us-east-1"
+        profile: <YOUR-TASK-EXECTUION-ROLE-ARN>
+  - job_name: ecs_CAdvisor
+    relabel_configs:
+      - source_labels: [__meta_ec2_tag_aws_cloudformation_stack_name]
+        regex: Infra-ECS-Cluster-my-production-cluster-377db17e # replace this with your regex
+        action: keep
+    ec2_sd_configs:
+      - port: 9200 # referred to cAdvisor exposed port
+        region: "us-east-1"
+        profile: <YOUR-TASK-EXECTUION-ROLE-ARN>
+rule_files:
+  - "/etc/prometheus/rules.yaml"
