@@ -1,0 +1,72 @@
+{
+    "family": "prometheus-altermanager-definition",
+    "containerDefinitions": [
+        {
+            "name": "init-container",
+            "image": "alpine:latest",
+            "cpu": 0,
+            "memory": 256,
+            "memoryReservation": 128,
+            "portMappings": [],
+            "essential": false,
+            "command": [
+                "wget",
+                "https://<YOUR-S3-BUCKET-NAME>/prometheus/altermanager.yml",
+                "-P",
+                "/mnt"
+            ],
+            "environment": [],
+            "mountPoints": [
+                {
+                    "sourceVolume": "alertmanager_config",
+                    "containerPath": "/mnt"
+                }
+            ],
+            "volumesFrom": []
+        },
+        {
+            "name": "prometheus",
+            "image": "prom/prometheus:v2.4.0",
+            "cpu": 512,
+            "memory": 512,
+            "memoryReservation": 256,
+            "portMappings": [
+                {
+                    "containerPort": 9090,
+                    "hostPort": 9090,
+                    "protocol": "tcp"
+                }
+            ],
+            "essential": true,
+            "environment": [],
+            "mountPoints": [
+                {
+                    "sourceVolume": "alertmanager_config",
+                    "containerPath": "/etc/alertmanager"
+                }
+            ],
+            "volumesFrom": [],
+            "dependsOn": [
+                {
+                    "containerName": "init-container",
+                    "condition": "COMPLETE"
+                }
+            ]
+        }
+    ],
+    "taskRoleArn": "<YOUR-TASK-EXECTUION-ROLE-ARN>",
+    "volumes": [
+        {
+            "name": "alertmanager_config",
+            "dockerVolumeConfiguration": {
+                "scope": "task",
+                "driver": "local"
+            }
+        }
+    ],
+    "requiresCompatibilities": [
+        "EC2"
+    ],
+    "cpu": "1024",
+    "memory": "512"
+}
